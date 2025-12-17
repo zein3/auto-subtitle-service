@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Form, UploadFile, File, HTTPException
 from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from pathlib import Path
 from config import settings
@@ -14,6 +15,16 @@ BASE_DIR = Path("jobs")
 BASE_DIR.mkdir(exist_ok=True)
 
 app = FastAPI(title="Auto Subtitle Service", version="1.0")
+
+origins = ["*"]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
 
 # --------------------
 # Models

@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auto Subtitle Service</title>
+    <!-- Bootstrap CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        :root {
+            --primary-color: #6c63ff;
+            --secondary-color: #4a44b5;
+            --background-color: #ffffff;
+            --card-background: #f8f9fa;
+            --text-color: #333333;
+            --border-color: #dee2e6;
+            --success-color: #28a745;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
+            --dark-bg: #1a1a1a;
+            --dark-card: #2d2d2d;
+            --dark-text: #e9ecef;
+            --dark-border: #444;
+        }
+
+        .dark-theme {
+            --background-color: var(--dark-bg);
+            --card-background: var(--dark-card);
+            --text-color: var(--dark-text);
+            --border-color: var(--dark-border);
+        }
+
+        body {
+            background-color: var(--background-color);
+            color: var(--text-color);
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .theme-toggle {
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: transform 0.3s;
+        }
+
+        .theme-toggle:hover {
+            transform: scale(1.1);
+        }
+
+        .upload-area {
+            border: 2px dashed var(--border-color);
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background-color: var(--card-background);
+        }
+
+        .upload-area:hover, .upload-area.dragover {
+            border-color: var(--primary-color);
+            background-color: rgba(108, 99, 255, 0.05);
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            color: var(--primary-color);
+            margin-bottom: 15px;
+        }
+
+        .language-search {
+            position: relative;
+        }
+
+        .language-dropdown-menu {
+            max-height: 300px;
+            overflow-y: auto;
+            width: 100%;
+        }
+
+        .language-option {
+            padding: 8px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .language-option:hover {
+            background-color: rgba(108, 99, 255, 0.1);
+        }
+
+        .progress-container {
+            display: none;
+        }
+
+        .download-section {
+            display: none;
+        }
+
+        .download-btn {
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+
+        .file-info {
+            margin-top: 10px;
+            font-size: 0.9em;
+            color: #6c757d;
+        }
+
+        .form-check-input:checked {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h1 class="display-5 fw-bold">Auto Subtitle Service</h1>
+                    <div class="theme-toggle" id="themeToggle">
+                        <i class="bi bi-moon-fill"></i>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm" style="background-color: var(--card-background); border-color: var(--border-color);">
+                    <div class="card-body">
+                        <!-- Upload Section -->
+                        <div id="uploadSection">
+                            <div class="mb-3">
+                                <label class="form-label">Upload Video File</label>
+                                <div class="upload-area" id="uploadArea">
+                                    <i class="bi bi-cloud-upload upload-icon"></i>
+                                    <p class="lead">Drag & drop your video here or click to browse</p>
+                                    <small class="text-muted">Supported formats: MP4, MOV, AVI, MKV (Max 500MB)</small>
+                                    <input type="file" id="videoFile" accept="video/*" class="d-none">
+                                </div>
+                                <div id="fileInfo" class="file-info"></div>
+                            </div>
+
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Select Language</label>
+                                    <div class="position-relative">
+                                        <input type="text" class="form-control" id="languageSearch" placeholder="Search language..." autocomplete="off">
+                                        <div class="dropdown-menu language-dropdown-menu" id="languageDropdown" style="display: none; top: 100%; left: 0; right: 0;">
+                                            <!-- Language options will be populated here -->
+                                        </div>
+                                    </div>
+                                    <input type="hidden" id="selectedLanguage" value="auto">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label d-block">&nbsp;</label>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="burnInCheckbox">
+                                        <label class="form-check-label" for="burnInCheckbox">Burn subtitles into video</label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button class="btn btn-primary w-100" id="submitBtn" disabled>
+                                <i class="bi bi-send me-2"></i>Generate Subtitles
+                            </button>
+                        </div>
+
+                        <!-- Progress Section -->
+                        <div id="progressSection" class="progress-container">
+                            <div class="text-center mb-3">
+                                <h4>Processing...</h4>
+                                <p class="text-muted">Your video is being processed. This may take a few minutes.</p>
+                            </div>
+                            <div class="progress mb-3">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                     id="progressBar" role="progressbar" style="width: 0%">
+                                    0%
+                                </div>
+                            </div>
+                            <div class="text-center">
+                                <button class="btn btn-secondary" id="cancelBtn">
+                                    <i class="bi bi-x-circle me-2"></i>Cancel Processing
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Download Section -->
+                        <div id="downloadSection" class="download-section">
+                            <div class="text-center mb-4">
+                                <i class="bi bi-check-circle-fill text-success" style="font-size: 3rem;"></i>
+                                <h4 class="mt-3">Processing Complete!</h4>
+                                <p class="text-muted">Your subtitle generation is finished.</p>
+                            </div>
+                            <div class="text-center" id="downloadButtons">
+                                <!-- Download buttons will be added here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Configuration
+        const CONFIG = {
+            API_BASE_URL: 'http://localhost:8000',
+            API_VERSION: 'v1'
+        };
+
+        // All languages mapping
+        const LANGUAGES = {
+            'auto': 'Auto Detect',
+            'af': 'Afrikaans',
+            'sq': 'Albanian',
+            'am': 'Amharic',
+            'ar': 'Arabic',
+            'hy': 'Armenian',
+            'as': 'Assamese',
+            'az': 'Azerbaijani',
+            'ba': 'Bashkir',
+            'eu': 'Basque',
+            'be': 'Belarusian',
+            'bn': 'Bengali',
+            'bs': 'Bosnian',
+            'br': 'Breton',
+            'bg': 'Bulgarian',
+            'ca': 'Catalan',
+            'zh': 'Chinese',
+            'hr': 'Croatian',
+            'cs': 'Czech',
+            'da': 'Danish',
+            'nl': 'Dutch',
+            'en': 'English',
+            'eo': 'Esperanto',
+            'et': 'Estonian',
+            'fo': 'Faroese',
+            'fi': 'Finnish',
+            'fr': 'French',
+            'gl': 'Galician',
+            'ka': 'Georgian',
+            'de': 'German',
+            'el': 'Greek',
+            'gu': 'Gujarati',
+            'ht': 'Haitian Creole',
+            'ha': 'Hausa',
+            'haw': 'Hawaiian',
+            'he': 'Hebrew',
+            'hi': 'Hindi',
+            'hu': 'Hungarian',
+            'is': 'Icelandic',
+            'id': 'Indonesian',
+            'it': 'Italian',
+            'ja': 'Japanese',
+            'jw': 'Javanese',
+            'kn': 'Kannada',
+            'kk': 'Kazakh',
+            'km': 'Khmer',
+            'ko': 'Korean',
+            'lo': 'Lao',
+            'la': 'Latin',
+            'lv': 'Latvian',
+            'ln': 'Lingala',
+            'lt': 'Lithuanian',
+            'lb': 'Luxembourgish',
+            'mk': 'Macedonian',
+            'mg': 'Malagasy',
+            'ms': 'Malay',
+            'ml': 'Malayalam',
+            'mt': 'Maltese',
+            'mi': 'Maori',
+            'mr': 'Marathi',
+            'mn': 'Mongolian',
+            'my': 'Myanmar (Burmese)',
+            'ne': 'Nepali',
+            'no': 'Norwegian',
+            'nn': 'Nynorsk',
+            'oc': 'Occitan',
+            'pa': 'Punjabi',
+            'pl': 'Polish',
+            'pt': 'Portuguese',
+            'ps': 'Pashto',
+            'ro': 'Romanian',
+            'ru': 'Russian',
+            'sa': 'Sanskrit',
+            'sr': 'Serbian',
+            'sn': 'Shona',
+            'sd': 'Sindhi',
+            'si': 'Sinhala',
+            'sk': 'Slovak',
+            'sl': 'Slovenian',
+            'so': 'Somali',
+            'es': 'Spanish',
+            'su': 'Sundanese',
+            'sw': 'Swahili',
+            'sv': 'Swedish',
+            'tl': 'Tagalog',
+            'tg': 'Tajik',
+            'ta': 'Tamil',
+            'tt': 'Tatar',
+            'te': 'Telugu',
+            'th': 'Thai',
+            'bo': 'Tibetan',
+            'tr': 'Turkish',
+            'tk': 'Turkmen',
+            'uk': 'Ukrainian',
+            'ur': 'Urdu',
+            'uz': 'Uzbek',
+            'vi': 'Vietnamese',
+            'cy': 'Welsh',
+            'yi': 'Yiddish',
+            'yo': 'Yoruba'
+        };
+
+        // DOM Elements
+        const elements = {
+            themeToggle: document.getElementById('themeToggle'),
+            uploadArea: document.getElementById('uploadArea'),
+            videoFile: document.getElementById('videoFile'),
+            fileInfo: document.getElementById('fileInfo'),
+            languageSearch: document.getElementById('languageSearch'),
+            languageDropdown: document.getElementById('languageDropdown'),
+            selectedLanguage: document.getElementById('selectedLanguage'),
+            burnInCheckbox: document.getElementById('burnInCheckbox'),
+            submitBtn: document.getElementById('submitBtn'),
+            uploadSection: document.getElementById('uploadSection'),
+            progressSection: document.getElementById('progressSection'),
+            progressBar: document.getElementById('progressBar'),
+            cancelBtn: document.getElementById('cancelBtn'),
+            downloadSection: document.getElementById('downloadSection'),
+            downloadButtons: document.getElementById('downloadButtons')
+        };
+
+        // State management
+        let currentJobId = null;
+        let pollingInterval = null;
+
+        // Initialize the application
+        function init() {
+            loadTheme();
+            populateLanguages();
+            setupEventListeners();
+        }
+
+        // Load saved theme preference
+        function loadTheme() {
+            const isDark = localStorage.getItem('theme') === 'dark';
+            if (isDark) {
+                document.body.classList.add('dark-theme');
+                elements.themeToggle.innerHTML = '<i class="bi bi-sun-fill"></i>';
+            }
+        }
+
+        // Populate language dropdown
+        function populateLanguages() {
+            const languageEntries = Object.entries(LANGUAGES);
+            
+            languageEntries.forEach(([code, name]) => {
+                const option = document.createElement('div');
+                option.className = 'language-option';
+                option.textContent = name;
+                option.dataset.code = code;
+                
+                option.addEventListener('click', () => {
+                    elements.selectedLanguage.value = code;
+                    elements.languageSearch.value = name;
+                    elements.languageDropdown.style.display = 'none';
+                });
+                
+                elements.languageDropdown.appendChild(option);
+            });
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            // Theme toggle
+            elements.themeToggle.addEventListener('click', toggleTheme);
+
+            // Upload area interactions
+            elements.uploadArea.addEventListener('click', () => elements.videoFile.click());
+            elements.videoFile.addEventListener('change', handleFileSelect);
+            elements.uploadArea.addEventListener('dragover', handleDragOver);
+            elements.uploadArea.addEventListener('dragleave', handleDragLeave);
+            elements.uploadArea.addEventListener('drop', handleDrop);
+
+            // Language search
+            elements.languageSearch.addEventListener('focus', showLanguageDropdown);
+            elements.languageSearch.addEventListener('blur', () => {
+                setTimeout(() => elements.languageDropdown.style.display = 'none', 200);
+            });
+            elements.languageSearch.addEventListener('input', filterLanguages);
+
+            // Submit button
+            elements.submitBtn.addEventListener('click', startProcessing);
+
+            // Cancel button
+            elements.cancelBtn.addEventListener('click', cancelProcessing);
+        }
+
+        // Toggle between light and dark theme
+        function toggleTheme() {
+            document.body.classList.toggle('dark-theme');
+            const isDark = document.body.classList.contains('dark-theme');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            
+            elements.themeToggle.innerHTML = isDark 
+                ? '<i class="bi bi-sun-fill"></i>' 
+                : '<i class="bi bi-moon-fill"></i>';
+        }
+
+        // Handle file selection
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                displayFileInfo(file);
+                elements.submitBtn.disabled = false;
+            }
+        }
+
+        // Display file information
+        function displayFileInfo(file) {
+            const size = formatFileSize(file.size);
+            elements.fileInfo.innerHTML = `
+                <strong>${file.name}</strong> (${size})
+            `;
+        }
+
+        // Format file size
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Drag and drop handlers
+        function handleDragOver(event) {
+            event.preventDefault();
+            elements.uploadArea.classList.add('dragover');
+        }
+
+        function handleDragLeave(event) {
+            event.preventDefault();
+            elements.uploadArea.classList.remove('dragover');
+        }
+
+        function handleDrop(event) {
+            event.preventDefault();
+            elements.uploadArea.classList.remove('dragover');
+            
+            const files = event.dataTransfer.files;
+            if (files.length > 0) {
+                elements.videoFile.files = files;
+                displayFileInfo(files[0]);
+                elements.submitBtn.disabled = false;
+            }
+        }
+
+        // Show language dropdown
+        function showLanguageDropdown() {
+            elements.languageDropdown.style.display = 'block';
+            filterLanguages();
+        }
+
+        // Filter languages based on search input
+        function filterLanguages() {
+            const searchTerm = elements.languageSearch.value.toLowerCase();
+            const options = elements.languageDropdown.querySelectorAll('.language-option');
+            
+            options.forEach(option => {
+                const text = option.textContent.toLowerCase();
+                const code = option.dataset.code;
+                
+                if (searchTerm === '' || text.includes(searchTerm) || code.includes(searchTerm)) {
+                    option.style.display = 'block';
+                } else {
+                    option.style.display = 'none';
+                }
+            });
+        }
+
+        // Start processing the video
+        async function startProcessing() {
+            const file = elements.videoFile.files[0];
+            const language = elements.selectedLanguage.value;
+            const burnIn = elements.burnInCheckbox.checked;
+
+            if (!file) {
+                alert('Please select a video file first.');
+                return;
+            }
+
+            try {
+                elements.uploadSection.style.display = 'none';
+                elements.progressSection.style.display = 'block';
+                updateProgress(0, 'Starting...');
+
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('language', language);
+                formData.append('burn_in', burnIn);
+
+                const response = await fetch(`${CONFIG.API_BASE_URL}/api/${CONFIG.API_VERSION}/jobs`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                currentJobId = result.job_id;
+
+                pollJobStatus();
+            } catch (error) {
+                console.error('Error starting processing:', error);
+                alert('Error starting processing: ' + error.message);
+                resetForm();
+            }
+        }
+
+        // Poll job status
+        function pollJobStatus() {
+            clearInterval(pollingInterval);
+            pollingInterval = setInterval(async () => {
+                try {
+                    const response = await fetch(`${CONFIG.API_BASE_URL}/api/${CONFIG.API_VERSION}/jobs/${currentJobId}`);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const jobStatus = await response.json();
+                    updateProgress(jobStatus.progress || 0, jobStatus.status);
+
+                    if (jobStatus.status === 'completed') {
+                        clearInterval(pollingInterval);
+                        showDownloadOptions(jobStatus);
+                    } else if (jobStatus.status === 'failed') {
+                        clearInterval(pollingInterval);
+                        alert('Processing failed: ' + (jobStatus.error || 'Unknown error'));
+                        resetForm();
+                    }
+                } catch (error) {
+                    console.error('Error polling job status:', error);
+                    clearInterval(pollingInterval);
+                    alert('Error checking job status: ' + error.message);
+                    resetForm();
+                }
+            }, 2000);
+        }
+
+        // Update progress bar
+        function updateProgress(progress, status) {
+            elements.progressBar.style.width = `${progress}%`;
+            elements.progressBar.textContent = `${progress}%`;
+            
+            // Update progress bar color based on status
+            elements.progressBar.className = 'progress-bar progress-bar-striped progress-bar-animated';
+            if (status === 'completed') {
+                elements.progressBar.classList.add('bg-success');
+            } else if (status === 'failed') {
+                elements.progressBar.classList.add('bg-danger');
+            } else {
+                elements.progressBar.classList.add('bg-primary');
+            }
+        }
+
+        // Show download options
+        function showDownloadOptions(jobStatus) {
+            elements.progressSection.style.display = 'none';
+            elements.downloadSection.style.display = 'block';
+
+            const burnIn = elements.burnInCheckbox.checked;
+            const downloadButtonsHtml = `
+                <a href="${CONFIG.API_BASE_URL}/api/${CONFIG.API_VERSION}/jobs/${currentJobId}/transcript" 
+                   class="btn btn-outline-primary download-btn" download="transcript.txt" target="_blank">
+                    <i class="bi bi-file-text me-2"></i>Download Transcript (.txt)
+                </a>
+                <a href="${CONFIG.API_BASE_URL}/api/${CONFIG.API_VERSION}/jobs/${currentJobId}/subtitle" 
+                   class="btn btn-outline-secondary download-btn" download="subtitle.srt" target="_blank">
+                    <i class="bi bi-subtitles me-2"></i>Download Subtitle (.srt)
+                </a>
+                ${burnIn ? `
+                <a href="${CONFIG.API_BASE_URL}/api/${CONFIG.API_VERSION}/jobs/${currentJobId}/video" 
+                   class="btn btn-outline-success download-btn" download="video_with_subtitles.mp4" target="_blank">
+                    <i class="bi bi-film me-2"></i>Download Video with Subtitles
+                </a>
+                ` : ''}
+            `;
+
+            elements.downloadButtons.innerHTML = downloadButtonsHtml;
+        }
+
+        // Cancel processing
+        async function cancelProcessing() {
+            if (currentJobId) {
+                try {
+                    await fetch(`${CONFIG.API_BASE_URL}/api/${CONFIG.API_VERSION}/jobs/${currentJobId}`, {
+                        method: 'DELETE'
+                    });
+                } catch (error) {
+                    console.error('Error cancelling job:', error);
+                }
+            }
+            resetForm();
+        }
+
+        // Reset form to initial state
+        function resetForm() {
+            clearInterval(pollingInterval);
+            currentJobId = null;
+            
+            elements.uploadSection.style.display = 'block';
+            elements.progressSection.style.display = 'none';
+            elements.downloadSection.style.display = 'none';
+            
+            elements.videoFile.value = '';
+            elements.fileInfo.innerHTML = '';
+            elements.languageSearch.value = '';
+            elements.selectedLanguage.value = 'auto';
+            elements.burnInCheckbox.checked = false;
+            elements.submitBtn.disabled = true;
+            elements.progressBar.style.width = '0%';
+            elements.progressBar.textContent = '0%';
+        }
+
+        // Initialize the application when DOM is loaded
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
